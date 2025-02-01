@@ -15,12 +15,12 @@ from .common import LayerNorm2d
 
 class PromptEncoder(nn.Module):
     def __init__(
-        self,
-        embed_dim: int,
-        image_embedding_size: Tuple[int, int],
-        input_image_size: Tuple[int, int],
-        mask_in_chans: int,
-        activation: Type[nn.Module] = nn.GELU,
+            self,
+            embed_dim: int,
+            image_embedding_size: Tuple[int, int],
+            input_image_size: Tuple[int, int],
+            mask_in_chans: int,
+            activation: Type[nn.Module] = nn.GELU,
     ) -> None:
         """
         Encodes prompts for input to SAM's mask decoder.
@@ -71,10 +71,10 @@ class PromptEncoder(nn.Module):
         return self.pe_layer(self.image_embedding_size).unsqueeze(0)
 
     def _embed_points(
-        self,
-        points: torch.Tensor,
-        labels: torch.Tensor,
-        pad: bool,
+            self,
+            points: torch.Tensor,
+            labels: torch.Tensor,
+            pad: bool,
     ) -> torch.Tensor:
         """Embeds point prompts."""
         points = points + 0.5  # Shift to center of pixel
@@ -83,7 +83,7 @@ class PromptEncoder(nn.Module):
             padding_label = -torch.ones((labels.shape[0], 1), device=labels.device)
             points = torch.cat([points, padding_point], dim=1)
             labels = torch.cat([labels, padding_label], dim=1)
-        point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)
+        point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)  # B x N(提示点个数) x C(位置编码特征维数)
         point_embedding[labels == -1] = 0.0
         point_embedding[labels == -1] += self.not_a_point_embed.weight
         point_embedding[labels == 0] += self.point_embeddings[0].weight
@@ -105,10 +105,10 @@ class PromptEncoder(nn.Module):
         return mask_embedding
 
     def _get_batch_size(
-        self,
-        points: Optional[Tuple[torch.Tensor, torch.Tensor]],
-        boxes: Optional[torch.Tensor],
-        masks: Optional[torch.Tensor],
+            self,
+            points: Optional[Tuple[torch.Tensor, torch.Tensor]],
+            boxes: Optional[torch.Tensor],
+            masks: Optional[torch.Tensor],
     ) -> int:
         """
         Gets the batch size of the output given the batch size of the input prompts.
@@ -126,10 +126,10 @@ class PromptEncoder(nn.Module):
         return self.point_embeddings[0].weight.device
 
     def forward(
-        self,
-        points: Optional[Tuple[torch.Tensor, torch.Tensor]],
-        boxes: Optional[torch.Tensor],
-        masks: Optional[torch.Tensor],
+            self,
+            points: Optional[Tuple[torch.Tensor, torch.Tensor]],
+            boxes: Optional[torch.Tensor],
+            masks: Optional[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Embeds different types of prompts, returning both sparse and dense
@@ -153,11 +153,13 @@ class PromptEncoder(nn.Module):
         if points is not None:
             coords, labels = points
             point_embeddings = self._embed_points(coords, labels, pad=(boxes is None))
+            print('point_embeddings_shape: ', point_embeddings.shape)
             sparse_embeddings = torch.cat([sparse_embeddings, point_embeddings], dim=1)
         if boxes is not None:
             box_embeddings = self._embed_boxes(boxes)
+            print('box_embeddings_shape: ', box_embeddings.shape)
             sparse_embeddings = torch.cat([sparse_embeddings, box_embeddings], dim=1)
-
+            print('point and box_embeddings_shape: ', sparse_embeddings.shape)
         if masks is not None:
             dense_embeddings = self._embed_masks(masks)
         else:
@@ -205,7 +207,7 @@ class PositionEmbeddingRandom(nn.Module):
         return pe.permute(2, 0, 1)  # C x H x W
 
     def forward_with_coords(
-        self, coords_input: torch.Tensor, image_size: Tuple[int, int]
+            self, coords_input: torch.Tensor, image_size: Tuple[int, int]
     ) -> torch.Tensor:
         """Positionally encode points that are not normalized to [0,1]."""
         coords = coords_input.clone()
