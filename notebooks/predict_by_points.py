@@ -33,7 +33,7 @@ def show_box(box, ax):
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
 
 
-image = cv2.imread('images/truck.jpg')
+image = cv2.imread('images/dog.jpg')
 # print(image)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -50,8 +50,9 @@ predictor = SamPredictor(sam)
 # 得到image_embedding
 predictor.set_image(image)
 
-input_point = np.array([[500, 375], [500, 370], [1125, 625]])
-input_label = np.array([1, 1, 0])
+# input_point = np.array([[500, 375], [500, 370], [1125, 625]])
+# input_label = np.array([1, 1, 0])
+text = "dog"
 # input_box = np.array([425, 600, 700, 875])
 
 # plt.figure(figsize=(10, 10))
@@ -61,17 +62,19 @@ input_label = np.array([1, 1, 0])
 # plt.show()
 
 masks, scores, logits = predictor.predict(
-    point_coords=input_point,
-    point_labels=input_label,
+    # point_coords=input_point,
+    # point_labels=input_label,
     # box=input_box[None, :],
+    text=text,
     multimask_output=True,
 )
 
-# for i, (mask, score) in enumerate(zip(masks, scores)):
-#     plt.figure(figsize=(10, 10))
-#     plt.imshow(image)
-#     show_mask(mask, plt.gca())
-#     show_points(input_point, input_label, plt.gca())
-#     plt.title(f"Mask {i + 1}, Score: {score:.3f}", fontsize=18)
-#     plt.axis('off')
-#     plt.show()
+for i, (mask, score) in enumerate(zip(masks, scores)):
+    plt.figure(figsize=(10, 10))
+    # plt.imshow(image)
+    show_mask(mask, plt.gca())
+    # show_points(input_point, input_label, plt.gca())
+    plt.title(f"Mask {i + 1}, Score: {score:.3f}", fontsize=18)
+    plt.axis('off')
+    # plt.show()
+    plt.savefig(f'output/truck-mask{i + 1}.png')

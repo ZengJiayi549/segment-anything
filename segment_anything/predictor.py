@@ -6,7 +6,7 @@
 
 import numpy as np
 import torch
-
+import clip
 from segment_anything.modeling import Sam
 
 from typing import Optional, Tuple
@@ -94,6 +94,7 @@ class SamPredictor:
         point_coords: Optional[np.ndarray] = None,
         point_labels: Optional[np.ndarray] = None,
         box: Optional[np.ndarray] = None,
+        text: Optional[str] = None,
         mask_input: Optional[np.ndarray] = None,
         multimask_output: bool = True,
         return_logits: bool = False,
@@ -112,6 +113,7 @@ class SamPredictor:
           mask_input (np.ndarray): A low resolution mask input to the model, typically
             coming from a previous prediction iteration. Has form 1xHxW, where
             for SAM, H=W=256.
+          text
           multimask_output (bool): If true, the model will return three masks.
             For ambiguous input prompts (such as a single click), this will often
             produce better masks than a single prediction. If only a single
@@ -147,6 +149,14 @@ class SamPredictor:
             box = self.transform.apply_boxes(box, self.original_size)
             box_torch = torch.as_tensor(box, dtype=torch.float, device=self.device)
             box_torch = box_torch[None, :]
+        # 添加文本prompt部分 直接在这里对text_torch完成编码 先试试不自己训练能不能利用冻结的clip编码器权重得到文本提示的功能
+        text_torch = None
+        if text is not None:
+            device = "cuda"
+            model, _ = clip.load("ViT-B/32", device=device)
+            text_torch = clip.tokenize([text]).to(device)
+            with torch.no_grad():
+                text_torch = model.encode_text(text_torch)
         if mask_input is not None:
             mask_input_torch = torch.as_tensor(mask_input, dtype=torch.float, device=self.device)
             mask_input_torch = mask_input_torch[None, :, :, :]
@@ -155,6 +165,7 @@ class SamPredictor:
             coords_torch,
             labels_torch,
             box_torch,
+            text_torch,
             mask_input_torch,
             multimask_output,
             return_logits=return_logits,
@@ -171,6 +182,7 @@ class SamPredictor:
         point_coords: Optional[torch.Tensor],
         point_labels: Optional[torch.Tensor],
         boxes: Optional[torch.Tensor] = None,
+        text: Optional[torch.Tensor] = None,
         mask_input: Optional[torch.Tensor] = None,
         multimask_output: bool = True,
         return_logits: bool = False,
@@ -188,6 +200,7 @@ class SamPredictor:
             background point.
           boxes (np.ndarray or None): A Bx4 array given a box prompt to the
             model, in XYXY format.
+          text
           mask_input (np.ndarray): A low resolution mask input to the model, typically
             coming from a previous prediction iteration. Has form Bx1xHxW, where
             for SAM, H=W=256. Masks returned by a previous iteration of the
@@ -222,6 +235,7 @@ class SamPredictor:
         sparse_embeddings, dense_embeddings = self.model.prompt_encoder(
             points=points,
             boxes=boxes,
+            text=text,
             masks=mask_input,
         )
 

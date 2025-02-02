@@ -58,6 +58,9 @@ class PromptEncoder(nn.Module):
             nn.Conv2d(mask_in_chans, embed_dim, kernel_size=1),
         )
         self.no_mask_embed = nn.Embedding(1, embed_dim)
+        # clip对文本编码器的输出是512维的 投射到256维度 线性层的权重其实应该训练得到
+        # 还有一种办法是对clip更改输出维度为256本地训练 不过应该没法用预训练模型了 效果未知
+        # self.text_projector = torch.nn.Linear(512, 256)
 
     def get_dense_pe(self) -> torch.Tensor:
         """
@@ -129,6 +132,7 @@ class PromptEncoder(nn.Module):
             self,
             points: Optional[Tuple[torch.Tensor, torch.Tensor]],
             boxes: Optional[torch.Tensor],
+            text: Optional[torch.Tensor],
             masks: Optional[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -139,6 +143,7 @@ class PromptEncoder(nn.Module):
           points (tuple(torch.Tensor, torch.Tensor) or none): point coordinates
             and labels to embed.
           boxes (torch.Tensor or none): boxes to embed
+          text (torch.Tensor or none): text already embedded
           masks (torch.Tensor or none): masks to embed
 
         Returns:
@@ -153,13 +158,19 @@ class PromptEncoder(nn.Module):
         if points is not None:
             coords, labels = points
             point_embeddings = self._embed_points(coords, labels, pad=(boxes is None))
-            print('point_embeddings_shape: ', point_embeddings.shape)
+            print('point_embeddings shape: ', point_embeddings.shape)
             sparse_embeddings = torch.cat([sparse_embeddings, point_embeddings], dim=1)
         if boxes is not None:
             box_embeddings = self._embed_boxes(boxes)
-            print('box_embeddings_shape: ', box_embeddings.shape)
+            print('box_embeddings shape: ', box_embeddings.shape)
             sparse_embeddings = torch.cat([sparse_embeddings, box_embeddings], dim=1)
-            print('point and box_embeddings_shape: ', sparse_embeddings.shape)
+        if text is not None:
+            text_embeddings = text[:, :256].unsqueeze(0).repeat(bs, 1, 1) # batch * M * 512
+            text_embeddings = text_embeddings.reshape(bs, -1, 256)
+            # text_embeddings = self.text_projector(text_embeddings)
+            print('text_embeddings shape: ', text.shape)
+            sparse_embeddings = torch.cat([sparse_embeddings, text_embeddings], dim=1)
+        print('sparse_embeddings shape: ', sparse_embeddings.shape)
         if masks is not None:
             dense_embeddings = self._embed_masks(masks)
         else:

@@ -103,5 +103,7 @@ def _build_sam(
     if checkpoint is not None:
         with open(checkpoint, "rb") as f:
             state_dict = torch.load(f)
+            # 强行给统一特征维度的线性层赋值
+            # state_dict.prompt_encoder['text_projector'] = {'weight': [], 'bias': []}
         sam.load_state_dict(state_dict)
     return sam
